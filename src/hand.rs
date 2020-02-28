@@ -2,12 +2,12 @@ use super::card::*;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Ord, PartialOrd, Hash)]
 pub enum HandRank {
-    HighCard([Value; 5]),
-    Pair(Value, [Value; 3]),
-    TwoPairs([Value; 2], Value),
-    Trips(Value, [Value; 2]),
+    HighCard(Value, Value, Value, Value, Value),
+    Pair(Value, Value, Value, Value),
+    TwoPairs(Value, Value, Value),
+    Trips(Value, Value, Value),
     Straight(Value),
-    Flush([Value; 5]),
+    Flush(Value, Value, Value, Value, Value),
     FullHouse(Value, Value),
     Quads(Value, Value),
     StraightFlush(Value),
@@ -24,33 +24,29 @@ impl From<[Card; 5]> for HandRank {
         let is_flush = s.into_iter().all(|x| x == s0);
 
         // Straight
-        let v: Vec<_> = cards.iter().map(|x| x.1).sorted().collect();
+        let mut v: Vec<_> = cards.iter().map(|x| x.1).collect();
+        v.sort();
+        v.reverse();
         let is_straight_normal = v
             .iter()
             .tuple_windows()
-            .all(|(x, y)| i8::from(*x) + 1 == i8::from(*y));
-        let is_straight_ace = vec![Ace, Two, Three, Four, Five] == v;
-        let is_straight = is_straight_ace || is_straight_normal;
+            .all(|(x, y)| i8::from(*x) == i8::from(*y) + 1);
+        let is_straight_ace = v == vec![Ace, Five, Four, Three, Two];
 
         if is_flush {
-            if is_straight {
-                let mut v = v;
-                return HandRank::StraightFlush(v.pop().unwrap());
+            if is_straight_normal {
+                return HandRank::StraightFlush(v[0]);
+            } else if is_straight_ace {
+                return HandRank::StraightFlush(Five);
             } else {
-                let mut v = v;
-                return HandRank::Flush([
-                    v.pop().unwrap(),
-                    v.pop().unwrap(),
-                    v.pop().unwrap(),
-                    v.pop().unwrap(),
-                    v.pop().unwrap(),
-                ]);
+                return HandRank::Flush(v[0], v[1], v[2], v[3], v[4]);
             }
         }
 
-        if is_straight {
-            let mut v = v;
-            return HandRank::Straight(v.pop().unwrap());
+        if is_straight_normal {
+            return HandRank::Straight(v[0]);
+        } else if is_straight_ace {
+            return HandRank::Straight(Five);
         }
 
         let mut v = v;
@@ -67,33 +63,18 @@ impl From<[Card; 5]> for HandRank {
         }
 
         counter.sort();
+        counter.reverse();
 
-        match counter.pop().unwrap() {
-            (4, x) => HandRank::Quads(x, counter.pop().unwrap().1),
-            (3, x) => match counter.len() {
-                1 => HandRank::FullHouse(x, counter.pop().unwrap().1),
-                2 => HandRank::Trips(x, [counter.pop().unwrap().1, counter.pop().unwrap().1]),
-                _ => unreachable!(),
-            },
-            (2, x) => match counter.len() {
-                2 => HandRank::TwoPairs([x, counter.pop().unwrap().1], counter.pop().unwrap().1),
-                3 => HandRank::Pair(
-                    x,
-                    [
-                        counter.pop().unwrap().1,
-                        counter.pop().unwrap().1,
-                        counter.pop().unwrap().1,
-                    ],
-                ),
-                _ => unreachable!(),
-            },
-            (1, x) => HandRank::HighCard([
-                x,
-                counter.pop().unwrap().1,
-                counter.pop().unwrap().1,
-                counter.pop().unwrap().1,
-                counter.pop().unwrap().1,
-            ]),
+        let c = counter.iter().map(|x| x.0).next_tuple().unwrap();
+        let v: Vec<_> = counter.iter().map(|x| x.1).collect();
+
+        match c {
+            (4, 1) => HandRank::Quads(v[0], v[1]),
+            (3, 2) => HandRank::FullHouse(v[0], v[1]),
+            (3, 1) => HandRank::Trips(v[0], v[1], v[2]),
+            (2, 2) => HandRank::TwoPairs(v[0], v[1], v[2]),
+            (2, 1) => HandRank::Pair(v[0], v[1], v[2], v[3]),
+            (1, 1) => HandRank::HighCard(v[0], v[1], v[2], v[3], v[4]),
             _ => unreachable!(),
         }
     }

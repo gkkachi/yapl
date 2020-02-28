@@ -1,6 +1,6 @@
 [package]
 name = "yapl"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Konosuke Kachi <github@s.k-kachi.net>"]
 edition = "2018"
 
